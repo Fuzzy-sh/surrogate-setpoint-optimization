@@ -1,0 +1,3 @@
+policy,n_selected,true_mean_response,true_worst_case,n_actually_harmful
+naive top-20 by predicted mean,20,-3.3785349999999994,-15.6535,9
+"safe rule, top-20 by LCB",15,1.2177,-0.7834,2
