@@ -62,8 +62,9 @@ ACTION_BOUNDS = {
 }
 
 
-def _asset_table(rng: np.random.Generator) -> pd.DataFrame:
+def _asset_table(rng: np.random.Generator, n_assets: int = N_ASSETS) -> pd.DataFrame:
     """Per-asset latent characteristics. These are never exposed to the model."""
+    N_ASSETS = n_assets
     asset_ids = [f"ASSET_{i:02d}" for i in range(1, N_ASSETS + 1)]
     return pd.DataFrame(
         {
@@ -266,10 +267,19 @@ def _quality_label(state: pd.DataFrame) -> np.ndarray:
     return label
 
 
-def make_history(seed: int = 7) -> pd.DataFrame:
-    """Historical intervention events, with observed 48-hour response."""
+def make_history(seed: int = 7, n_events: int = N_EVENTS,
+                 n_assets: int = N_ASSETS) -> pd.DataFrame:
+    """Historical intervention events, with observed 48-hour response.
+
+    `n_events` / `n_assets` are exposed because the *sample-size regime* changes which
+    modelling choices are correct. With a few hundred rows over a dozen assets, a
+    regularised linear model beats gradient boosting and single-split validation is
+    too noisy to trust -- conclusions that reverse at 2600 rows. Both regimes are
+    worth being able to reproduce.
+    """
     rng = np.random.default_rng(seed)
-    assets = _asset_table(rng)
+    assets = _asset_table(rng, n_assets)
+    N_EVENTS = n_events
     state = _draw_state(rng, assets, N_EVENTS)
     action = _choose_actions(rng, state)
 
@@ -289,7 +299,9 @@ def make_history(seed: int = 7) -> pd.DataFrame:
     return df
 
 
-def make_candidates(seed: int = 21) -> pd.DataFrame:
+def make_candidates(seed: int = 21, n_candidates: int = N_CANDIDATES,
+                    n_assets: int = N_ASSETS, history_seed: int = 7,
+                    history_events: int = N_EVENTS) -> pd.DataFrame:
     """
     Candidate actions to be scored. No target is provided.
 
@@ -298,14 +310,16 @@ def make_candidates(seed: int = 21) -> pd.DataFrame:
     Detecting that is the point.
     """
     rng = np.random.default_rng(seed)
-    assets = _asset_table(np.random.default_rng(7))  # same fleet as the history
+    N_CANDIDATES = n_candidates
+    assets = _asset_table(np.random.default_rng(history_seed), n_assets)  # same fleet
     state = _draw_state(rng, assets, N_CANDIDATES)
 
     # Two thirds of candidates sit inside the action envelope operators actually
     # used; the rest deliberately push beyond it, so the support check has
     # something real to catch. The envelope is measured from the history rather
     # than hard-coded, so the two datasets stay consistent if the generator changes.
-    hist_actions = make_history(seed=7)[
+    hist_actions = make_history(seed=history_seed, n_events=history_events,
+                                n_assets=n_assets)[
         ["action_delta_injection_rate", "action_delta_dwell_min", "action_delta_cycle_min"]
     ]
     env = {c: (hist_actions[c].quantile(0.02), hist_actions[c].quantile(0.98))

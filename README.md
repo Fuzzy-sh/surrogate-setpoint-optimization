@@ -157,6 +157,42 @@ measurement says the support check matters more.
 
 ---
 
+## A second pass: the small-sample regime
+
+[`notebooks/02_small_sample_surrogate_analysis.ipynb`](notebooks/02_small_sample_surrogate_analysis.ipynb)
+re-runs the same problem with **320 events across 12 assets** instead of 2600 across 24 —
+the size industrial datasets actually arrive in. Sample size changes which methods are
+correct, and the notebook is structured as a full analysis: EDA → validation design →
+baseline → model ablation → uncertainty → diagnostics → candidate scoring → summary.
+
+What changes at small n:
+
+- **A single split becomes uninterpretable.** With 12 assets, fold-to-fold R² swings so
+  widely that the headline has to be a repeated 5-fold GroupKFold mean ± spread. Quoting one
+  split — in either direction — is quoting noise.
+- **Model choice has to be earned.** An ablation across the same folds picks the model;
+  RandomForest wins here because the response genuinely saturates and interacts, but on
+  sparser data the regularised linear model usually wins. The deliverable is the ablation,
+  not the winner.
+- **Uncertainty stops being decoration.** Split-conformal intervals calibrated on held-out
+  *assets* give a half-width of ±1.74 against a best predicted gain of +2.88.
+
+The recommendation funnel is the punchline:
+
+| Rule | Candidates flagged (of 140) |
+|---|---:|
+| Naive "positive predicted mean" | **34** |
+| Lower bound above zero | **2** |
+| Clears the lower bound *and* every safety flag | **0** |
+
+**Zero confident recommendations is the answer**, not a failure to find one. The synthetic
+ground truth confirms it: a mean-ranking recommender would have shipped a top-20 whose *true*
+mean response is **−2.81**, with **10 of 20 actively harmful**. The model still earns its
+keep — a **75% direction hit-rate** against a 37% base rate — it just is not confident enough
+to justify touching equipment without a monitored trial first.
+
+---
+
 ## Running it
 
 ```bash
